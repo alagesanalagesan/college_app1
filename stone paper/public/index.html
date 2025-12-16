@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Today's Schedule</title>
+  <style>
+    body { font-family: Inter, system-ui, Arial; padding: 24px; background:#f6f7fb; color:#111; }
+    .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 6px 20px rgba(16,24,40,0.06); max-width:760px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 20px; }
+    pre { background:#f4f6fb; padding:12px; border-radius:8px; overflow:auto; }
+    .muted { color:#666; font-size:13px }
+    .error { color:#9b1c1c; background:#ffecec; padding:10px; border-radius:8px; }
+    .meta { margin-bottom: 12px; display:flex; gap:8px; align-items:center; }
+    button { padding:8px 12px; border-radius:8px; border:0; background:#111827; color:#fff; cursor:pointer; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h1>Today's Schedule</h1>
+        <div class="muted">Fetches <code>/schedule-today</code> from your backend</div>
+      </div>
+      <div>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+    </div>
+
+    <div class="meta" style="margin-top:12px;">
+      <div id="status">Status: <strong id="statusText">idle</strong></div>
+      <div style="margin-left:auto" class="muted">Base URL: <code id="baseUrlDisplay"></code></div>
+    </div>
+
+    <div id="outputArea">
+      <div id="loading" style="display:none" class="muted">Loading…</div>
+      <div id="error" style="display:none" class="error"></div>
+
+      <div id="noData" style="display:none" class="muted">No schedule found for today (check backend / DB)</div>
+
+      <div id="result" style="display:none">
+        <h3>Raw schedule object</h3>
+        <pre id="jsonPre"></pre>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;" class="muted">
+      Console logs will show more detail. If you see CORS errors in the browser console, enable CORS on the server.
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    // Replace with your backend. If testing on device/emulator use your PC IP e.g. http://10.104.37.131:5000
+    
+    const FULL_URL = 'http://10.104.37.131:5000/schedule-today';
+
+    // timeout in ms
+    const TIMEOUT_MS = 8000;
+
+    // ===== ELEMENTS =====
+    const baseUrlDisplay = document.getElementById('baseUrlDisplay');
+    const statusText = document.getElementById('statusText');
+    const loadingEl = document.getElementById('loading');
+    const errorEl = document.getElementById('error');
+    const noDataEl = document.getElementById('noData');
+    const resultEl = document.getElementById('result');
+    const jsonPre = document.getElementById('jsonPre');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    baseUrlDisplay.textContent = BASE_URL;
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function showLoading(on=true) {
+      loadingEl.style.display = on ? 'block' : 'none';
+      refreshBtn.disabled = on;
+      setStatus(on ? 'loading' : 'idle');
+    }
+    function showError(msg) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = msg;
+      setStatus('error');
+    }
+    function clearError() {
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+    }
+    function showNoData(on=true) {
+      noDataEl.style.display = on ? 'block' : 'none';
+    }
+    function showResult(data) {
+      resultEl.style.display = 'block';
+      jsonPre.textContent = JSON.stringify(data, null, 2);
+      setStatus('ok');
+    }
+    function clearResult() {
+      resultEl.style.display = 'none';
+      jsonPre.textContent = '';
+    }
+
+    // ===== FETCH FUNCTION =====
+    async function fetchTodaySchedule() {
+      clearError();
+      clearResult();
+      showNoData(false);
+      showLoading(true);
+
+      console.log('[TodaySchedule] Fetching →', FULL_URL);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, TIMEOUT_MS);
+
+      try {
+        const resp = await fetch(FULL_URL, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        console.log('[TodaySchedule] HTTP status:', resp.status);
+
+        // network-level OK?
+        if (!resp.ok) {
+          const text = await resp.text().catch(()=>null);
+          console.warn('[TodaySchedule] non-OK response body:', text);
+          throw new Error('Server responded with status ' + resp.status);
+        }
+
+        const data = await resp.json().catch(e => {
+          console.error('[TodaySchedule] Failed to parse JSON:', e);
+          throw new Error('Invalid JSON from server');
+        });
+
+        console.log('[TodaySchedule] response.data:', data);
+
+        if (data && data.success) {
+          if (data.schedule) {
+            showResult(data.schedule);
+          } else {
+            // server returned success but no schedule object
+            showNoData(true);
+            console.warn('[TodaySchedule] success:true but schedule is null/undefined:', data);
+          }
+        } else {
+          throw new Error('Server returned success:false or unexpected payload');
+        }
+      } catch (err) {
+        console.error('[TodaySchedule] fetch error:', err);
+        if (err.name === 'AbortError') {
+          showError('Request timed out or was aborted (timeout = ' + TIMEOUT_MS + 'ms).');
+        } else {
+          showError(err.message || 'Cannot connect to server');
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        showLoading(false);
+      }
+    }
+
+    // wire up
+    refreshBtn.addEventListener('click', fetchTodaySchedule);
+
+    // fetch once on load
+    window.addEventListener('load', () => {
+      fetchTodaySchedule();
+    });
+  </script>
+</body>
+</html>
