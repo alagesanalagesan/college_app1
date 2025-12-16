@@ -1,0 +1,21 @@
+{
+  "name": "gtn-college-backend",
+  "version": "1.0.0",
+  "description": "GTN College Student manegment System Backend",
+  "main": "app.js",
+  "scripts": {
+    "start": "node GTN.js",
+    "dev": "nodemon GTN.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "nodemailer": "^6.9.4",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
