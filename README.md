@@ -399,7 +399,7 @@ https://img.shields.io/github/issues/alagesan07/college-student-management-app
 https://img.shields.io/github/issues-pr/alagesan07/college-student-management-app
 https://img.shields.io/github/contributors/alagesan07/college-student-management-app
 
-🎓 Empowering Education • 📱 Modern Technology • 🌍 Global Impactvbvvbbvbvb
+🎓 Empowering Education • 📱 Modern Technology • 🌍 Global Impact
 
 <div align="center">
 Ready to Transform Your Institution?
